@@ -77,17 +77,6 @@ function create_pkg_context(project)
     return ctx
 end
 
-function load_all_deps(ctx)
-    env = ctx.env
-    if isdefined(Pkg.Operations, :load_all_deps!)
-        pkgs = Pkg.Types.PackageSpec[]
-        Pkg.Operations.load_all_deps!(env, pkgs)
-    else
-        pkgs = Pkg.Operations.load_all_deps(env)
-    end
-    return pkgs
-end
-
 function source_path(ctx, pkg)
     Pkg.Operations.source_path(ctx.env.project_file, pkg)
 end
@@ -1491,7 +1480,7 @@ function _collect_artifacts(pkg_root::String; platform::Base.BinaryPlatforms.Abs
 end
 
 function bundle_artifacts(ctx, dest_dir; include_lazy_artifacts::Bool)
-    pkgs = load_all_deps(ctx)
+    pkgs = Pkg.Operations.load_all_deps_loadable(ctx.env)
 
     # TODO: Allow override platform?
     platform = Base.BinaryPlatforms.HostPlatform()
