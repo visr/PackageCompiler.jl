@@ -77,15 +77,28 @@ function create_pkg_context(project)
     return ctx
 end
 
-function load_all_deps(ctx)
-    env = ctx.env
-    if isdefined(Pkg.Operations, :load_all_deps!)
-        pkgs = Pkg.Types.PackageSpec[]
-        Pkg.Operations.load_all_deps!(env, pkgs)
-    else
-        pkgs = Pkg.Operations.load_all_deps(env)
+function load_all_deps_loadable(env::Pkg.Types.EnvCache)
+    deps = Pkg.Operations.load_all_deps(env)
+    keep = Set{UUID}(values(env.project.deps))
+    prune_deps(env.manifest, keep)
+    filtered = filter(pkg -> pkg.uuid in keep, deps)
+    return filtered
+end
+
+function prune_deps(iterator, keep::Set{UUID})
+    while !isempty(keep)
+        clean = true
+        for (uuid, entry) in iterator
+            uuid in keep || continue
+            for dep in values(entry.deps)
+                dep in keep && continue
+                push!(keep, dep)
+                clean = false
+            end
+        end
+        clean && break
     end
-    return pkgs
+    return
 end
 
 function source_path(ctx, pkg)
@@ -1499,7 +1512,7 @@ function _collect_artifacts(pkg_root::String; platform::Base.BinaryPlatforms.Abs
 end
 
 function bundle_artifacts(ctx, dest_dir; include_lazy_artifacts::Bool)
-    pkgs = load_all_deps(ctx)
+    pkgs = load_all_deps_loadable(ctx.env)
 
     # TODO: Allow override platform?
     platform = Base.BinaryPlatforms.HostPlatform()
